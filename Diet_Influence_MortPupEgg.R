@@ -96,6 +96,51 @@ pdf("Follicles_ppd_2.pdf")
 grid.arrange(stan_trace(fitEggs4$fit,pars=c("b_Rep3","b_Rep4","b_Rep5"), ncol=1),stan_dens(fitEggs4$fit,pars=c("b_Rep3","b_Rep4","b_Rep5"), separate_chains=TRUE,ncol=1),ncol=2)
 dev.off()
 
+#### Eggs as binary trait ####
+
+#Quick check of zeros
+zero_keep <- subset(keep, Eggs == 0)
+summary(zero_keep)
+
+#recoding to make egg development binary
+keep$binary <- ifelse(keep$Eggs == 0, 1, 0)
+
+Rep1 <- with(subset(keep, Rep==1), data.frame(t(table(binary, Treat))))
+Rep3 <- with(subset(keep, Rep==3), data.frame(t(table(binary, Treat))))
+Rep4 <- with(subset(keep, Rep==4), data.frame(t(table(binary, Treat))))
+Rep5 <- with(subset(keep, Rep==5), data.frame(t(table(binary, Treat))))
+
+#since no zeros for rep 1, adding extra dataframe with zeros
+Treat <- as.character(c("High", "Medium","Low", "Xlow"))
+binary <- c(1,1,1,1)
+Freq <- c(0,0,0,0)
+zeros_Rep1 <- data.frame(cbind(Treat, binary, Freq))
+
+Tot_binary <- rbind(zeros_Rep1, Rep1, Rep3, Rep4, Rep5)
+Tot_binary$Rep <- rep(c(1,3,4,5), each = 8, times = 1)
+Tot_binary2 <- reshape(Tot_binary, idvar = c("Treat", "Rep"), timevar = "binary", direction = "wide")
+str(Tot_binary2)# sanity check
+
+#making frequencies numeric
+Tot_binary2$Freq.1 <- as.numeric(Tot_binary2$Freq.1)#these are actually the zeros
+Tot_binary2$Freq.0 <- as.numeric(Tot_binary2$Freq.0)
+Tot_binary2$Num_trials <- Tot_binary2$Freq.1 + Tot_binary2$Freq.0 #this gives the number of trials
+
+#here are the models
+fitEggs5 <- brm(Freq.1 | trials(Num_trials) ~ Treat, data = Tot_binary2, family ='binomial', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
+summary(fitEggs5)
+parnames(fitEggs5)
+pp_check(fitEggs5, type = "bars", nsamples = 10) 
+
+fitEggs6 <- brm(binary ~ Treat, data = keep, family ='bernoulli', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
+summary(fitEggs6)
+parnames(fitEggs6)
+pp_check(fitEggs6, type = "bars", nsamples = 10) ## Make plot of simulated data vs. real data
+
+#model comparison - models give comparable estimates, but fitEggs5 has better fit with lower looic and higher elpd
+looic(fitEggs5)
+looic(fitEggs6)
+
 
 ########## READ IN PUPATION DATA ##########
 dataR1P<-read.csv("Pupation_Rep1.csv",header=T)#Did rep2, but not using because growth chamber malfunctioned
