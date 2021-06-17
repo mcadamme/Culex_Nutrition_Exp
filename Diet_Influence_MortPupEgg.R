@@ -24,6 +24,63 @@ SumStats <- function(data, col1, col2){
   print(SumTab)
 }
 
+###### READ IN WING LENGTH DATA ######
+wings <- read.csv("Culex_winglength.csv", header = T)
+wings$Treat_Lev <- as.factor(wings$Treat_Lev)
+
+colnames(wings)[1] <- "Rep"
+wings$Rep <- as.factor(wings$Rep)
+
+str(wings)#sanity check
+
+#plots of winglength
+
+#plotting points
+p <- ggplot(wings, aes(x=Treat_Lev, y=converted, color=Treat, shape=Form)) + ylab("Wing Length uM") +
+  geom_point() + 
+  geom_jitter(width = 0.1, height = 0.1) +
+  theme_classic()
+p+scale_color_brewer(palette="Dark2")
+
+
+#boxplot
+p <- ggplot(wings, aes(x=Treat_Lev, y=converted, fill = Form)) + ylab("Wing Length um") +
+  geom_boxplot(position=position_dodge(1)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"),
+        panel.border = element_rect(colour = "grey30", fill=NA, size=1.5), strip.text = element_text(size=15),
+        axis.title.x = element_text(size=14, face="bold"),
+        axis.title.y = element_text(size=14, face="bold"),
+        axis.text.x=element_text(angle=45, hjust=1, size = 11, face = "bold"),
+        axis.text.y=element_text(size = 11, face = "bold")) +
+  scale_x_discrete("Diet Treatment",labels=c("1"="Extra Low", "2"="Low", "3"="Med", "4"="High"))
+
+p+scale_fill_manual(values=c("#999999", "#56B4E9"))
+
+#getting summary statistics
+SumStats(subset(wings, Form == "mol"),8,3)#call to SumStats function
+SumStats(subset(wings, Form == "pip"),8,3)
+
+# Bayesian model in BRMS
+# Windows version of R/rstan throws the following warning after running these models, but this does not impact model output according to rstan forums
+# Warning message: In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :  '-E' not found
+
+fitwings1 <- brm(converted ~ Treat + Form + Rep, data = wings, family ='gaussian', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
+summary(fitwings1)
+parnames(fitwings1)
+pp_check(fitwings1, type = "scatter_avg", nsamples = 10) ## Make plot of simulated data vs. real data
+
+fitwings2 <- brm(converted ~ Treat * Form + Rep, data = wings, family ='gaussian', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
+summary(fitwings2)
+parnames(fitwings2)
+pp_check(fitwings2, type = "scatter_avg", nsamples = 10) ## Make plot of simulated data vs. real data
+
+#model comparison - fitwings1 better fit with lower looic and higher elpd
+looic(fitwings1)
+looic(fitwings2)
+
+
+
 ###### READ IN FOLLICLE DEVELOPMENT DATA ######
 dataR1<-read.csv("Egg_Development_Rep1.csv",header=T)#Did rep2, but not using because growth chamber malfunctioned
 dataR3<-read.csv("Egg_Development_Rep3.csv",header=T)
