@@ -1,4 +1,4 @@
-#This is the script that we used to examine autogenous egg production and larval development
+#This is the script that we used to examine wingautogenous egg production and larval development
 #under different nutritional conditions for Cx. pipiens.
 #K. Bell and M. Fritz
 #03-14-21
@@ -11,8 +11,8 @@ lapply(x, FUN = function(X) {do.call("library", list(X))})
 
 #### Set Working Directory ####
 #setwd("~/Google Drive/Kate_Bell_Research/Nutrition_Exp./CSVs/")#Kate uses this
-#setwd("C:/Users/megan/Desktop/Culex_Nutrition_Exp")#Megan uses this on Windows 10, R v.4.0.2
-setwd("~/Desktop/Culex_Nutrition_Exp")#Megan uses this on Ubuntu 18.04, R v.3.6.3
+setwd("C:/Users/megan/Desktop/Culex_Nutrition_Exp")#Megan uses this on Windows 10, R v.4.0.2
+#setwd("~/Desktop/Culex_Nutrition_Exp")#Megan uses this on Ubuntu 18.04, R v.3.6.3
 
 #### Custom Functions ####
 #this function builds a table of summary statistics
@@ -23,6 +23,7 @@ SumStats <- function(data, col1, col2){
   SumTab <- rbind(SumMeans, SumSD, SumLen)
   print(SumTab)
 }
+
 
 ###### READ IN WING LENGTH DATA ######
 wings <- read.csv("Culex_winglength.csv", header = T)
@@ -36,7 +37,7 @@ str(wings)#sanity check
 #plots of winglength
 
 #plotting points
-p <- ggplot(wings, aes(x=Treat_Lev, y=converted, color=Treat, shape=Form)) + ylab("Wing Length uM") +
+p <- ggplot(wings, aes(x=Treat_Lev, y=in_mm, color=Treat, shape=Form)) + ylab("Wing Length (mm)") +
   geom_point() + 
   geom_jitter(width = 0.1, height = 0.1) +
   theme_classic()
@@ -44,7 +45,7 @@ p+scale_color_brewer(palette="Dark2")
 
 
 #boxplot
-p <- ggplot(wings, aes(x=Treat_Lev, y=converted, fill = Form)) + ylab("Wing Length um") +
+p <- ggplot(wings, aes(x=Treat_Lev, y=in_mm, fill = Form)) + ylab("Wing Length (mm)") +
   geom_boxplot(position=position_dodge(1)) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"),
@@ -58,19 +59,19 @@ p <- ggplot(wings, aes(x=Treat_Lev, y=converted, fill = Form)) + ylab("Wing Leng
 p+scale_fill_manual(values=c("#999999", "#56B4E9"))
 
 #getting summary statistics
-SumStats(subset(wings, Form == "mol"),8,3)#call to SumStats function
-SumStats(subset(wings, Form == "pip"),8,3)
+SumStats(subset(wings, Form == "mol"),9,3)#call to SumStats function
+SumStats(subset(wings, Form == "pip"),9,3)
 
 # Bayesian model in BRMS
 # Windows version of R/rstan throws the following warning after running these models, but this does not impact model output according to rstan forums
 # Warning message: In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :  '-E' not found
 
-fitwings1 <- brm(converted ~ Treat + Form + Rep, data = wings, family ='gaussian', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
+fitwings1 <- brm(in_mm ~ Treat + Form + Rep, data = wings, family ='gaussian', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
 summary(fitwings1)
 parnames(fitwings1)
 pp_check(fitwings1, type = "scatter_avg", nsamples = 10) ## Make plot of simulated data vs. real data
 
-fitwings2 <- brm(converted ~ Treat * Form + Rep, data = wings, family ='gaussian', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
+fitwings2 <- brm(in_mm ~ Treat * Form + Rep, data = wings, family ='gaussian', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
 summary(fitwings2)
 parnames(fitwings2)
 pp_check(fitwings2, type = "scatter_avg", nsamples = 10) ## Make plot of simulated data vs. real data
@@ -78,7 +79,6 @@ pp_check(fitwings2, type = "scatter_avg", nsamples = 10) ## Make plot of simulat
 #model comparison - fitwings1 better fit with lower looic and higher elpd
 looic(fitwings1)
 looic(fitwings2)
-
 
 
 ###### READ IN FOLLICLE DEVELOPMENT DATA ######
@@ -114,6 +114,8 @@ keep <- data.frame(data_comb1$Comb_Eggs_Per_Fem,data_comb1$Treat,data_comb1$rep)
 colnames(keep) <- c("Eggs","Treat","Rep")
 keep$Treat <- factor(keep$Treat, ordered = F, levels = c("High", "Medium", "Low", "Xlow"))
 levels(keep$Treat)#sanity check
+summary(keep)
+
 
 ##### GET SUMMARY DATA FOR FOLLICLE NUMBER #####
 SumStats(subset(keep, Rep == 1),1,2)#call to SumStats function above
@@ -127,9 +129,6 @@ SumStats(keep,1,2)#This gives overall summary
 kruskal.test(keep$Eggs ~ keep$Treat) #quick look using non-parametric test.
 
 # Bayesian model in BRMS
-# Windows version of R/rstan throws the following warning after running these models, but this does not impact model output according to rstan forums
-# Warning message: In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :  '-E' not found
-
 fitEggs3 <- brm(Eggs ~ Treat + Rep, data = keep, family ='poisson', chains = 4, iter = 6000, warmup = 2000, thin = 2, seed = 12345)
 summary(fitEggs3)
 parnames(fitEggs3)
@@ -158,6 +157,7 @@ dev.off()
 #Quick check of zeros
 zero_keep <- subset(keep, Eggs == 0)
 summary(zero_keep)
+summary(keep)
 
 #recoding to make egg development binary
 keep$binary <- ifelse(keep$Eggs == 0, 1, 0)
@@ -194,9 +194,10 @@ summary(fitEggs6)
 parnames(fitEggs6)
 pp_check(fitEggs6, type = "bars", nsamples = 10) ## Make plot of simulated data vs. real data
 
-#model comparison - models give comparable estimates, but fitEggs5 has better fit with lower looic and higher elpd
+#model comparison - models give comparable estimates, but fitEggs5 better fit with lower looic and higher elpd
 looic(fitEggs5)
 looic(fitEggs6)
+
 
 
 ########## READ IN PUPATION DATA ##########
@@ -274,7 +275,7 @@ parnames(dat.brm2)
 summary(dat.brm2 )
 pp_check(dat.brm2, type = "bars", nsamples = 10) ## Make plot of simulated data vs. real data
 
-#model comparison
+#model comparison - 2nd model is a better fit.
 looic(dat.brm1)
 looic(dat.brm2)
 
@@ -413,9 +414,11 @@ expanded$start_date <- as.factor(expanded$start_date)
 
 #making sex-by-form for plotting
 expanded$sexByform <- paste0(expanded$sex,"_",expanded$form)
+expanded$diet <- as.factor(expanded$diet)
 levels(expanded$diet)
 levels(expanded$diet) <- c("High", "Extra-Low")
-
+expanded$sex <- factor(expanded$sex, ordered = F, levels = c("male", "female"))
+expanded$sex <- factor(expanded$form, ordered = F, levels = c("pip", "mol"))
 
 ###### PLOTS - Sex*Diet*Form ######
 
@@ -426,13 +429,13 @@ ggplot(expanded) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"),
         panel.border = element_rect(colour = "grey30", fill=NA, size=1.5)) +
-  geom_violin(lwd = 1.2, trim=FALSE) + #geom_jitter(shape=21, fill = NA, colour = c("grey60"), position=position_jitter(0.2)) +
+  geom_violin(lwd = 1.2, trim=FALSE) +
   facet_wrap(~diet)
 
 #For Pub
 png("Pupation_Time_SexByDietByForm.png", unit = "px", height = 500, width = 1000)
 ggplot(expanded) +
-  aes(x = sexByform, y = pup_time_days) + 
+  aes(x = sexByform, y = pup_time_days) + ylim(5,20) +
   xlab("Sex and Form") + ylab("Pupation Time in Days") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"),
@@ -442,9 +445,11 @@ ggplot(expanded) +
         axis.text.x=element_text(angle=45, hjust=1, size = 11, face = "bold"),
         axis.text.y=element_text(size = 11, face = "bold")) +
   scale_x_discrete("",labels=c("female_mol"="Female Mol", "female_pip"="Female Pip", "male_mol"="Male Mol", "male_pip"="Male Pip")) +
-  geom_boxplot(lwd=1.1, fatten = T, fill = "grey80") + geom_jitter(shape=21, fill = NA, colour = c("grey30"), position=position_jitter(0.2)) +
+  scale_y_continuous(limits = c(5,20)) +
+  geom_boxplot(lwd=1.1, fatten = T, fill = "grey80", outlier.shape = NA) + geom_jitter(shape=21, fill = NA, colour = c("grey50"), position=position_jitter(0.2)) +
   facet_wrap(~diet)
 dev.off()
+
 
 #getting pip sumstats by sex & diet
 SumStats(subset(dataSS, form == "pip" & sex == "male" & diet == "xlo"),6,4)
@@ -468,8 +473,8 @@ exp.brm1 <- brm(pup_time_days | trunc(lb = 6) ~ diet * sex * form + start_date, 
 summary(exp.brm1)
 pp_check(exp.brm1, type = "bars", nsamples = 10) ## Make plot of simulated data vs. real data
 
-#updating dataset to try and get a better model fit.
-subtract<-function(x){x-6} #updating dataset so we don't need the truncated poisson
+#updating dataset so we don't need the truncated poisson
+subtract<-function(x){x-6}
 exp_update<-expanded ## Move data to new data frame
 exp_update$pup_time_days<-lapply(exp_update$pup_time_days,subtract)
 exp_update$pup_time_days<-as.numeric(exp_update$pup_time_days)
@@ -481,7 +486,3 @@ exp.brm2 <-brm(pup_time_days ~ diet * sex * form + start_date, data=exp_update, 
 parnames(exp.brm2)
 summary(exp.brm2 )
 pp_check(exp.brm2, type = "bars", nsamples = 10) ## Make plot of simulated data vs. real data
-
-#model comparison
-looic(exp.brm1)
-looic(exp.brm2)
